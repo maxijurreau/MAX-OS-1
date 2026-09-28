@@ -1,27 +1,14 @@
 name = "planetary-max"
 main = "src/global/main.ts"
-compatibility_date = "2026-09-27"
+compatibility_date = "2026-09-28"
 
-# MAX‑OS‑1 is NOT a Durable Object — remove DO bindings
-# (Cloudflare will fail if these remain)
-# [[durable_objects]]
-# binding = "PORTAL_KERNEL"
-# class_name = "PortalKernel"
-
-# Remove migrations for the old DO
-# migrations = []
-
-# Environment variables still apply globally
 [vars]
+MAX_OS_VERSION = "1"
 PORTAL_OS_PHASE = "13"
-PLANETARY_MODE = "single"
 UMBRELLA_ENFORCEMENT = "strict"
 IDENTITY_JWT_ISSUER = "portal-login"
 IDENTITY_JWT_AUDIENCE = "planetary-max"
 IDENTITY_JWT_SECRET = "your-hmac-secret"
-MAX_OS_VERSION = "1"
 
-# KV namespaces still work with MAX‑OS‑1
-[[kv_namespaces]]
-binding = "MAXOS_STATE"
-id = "d2f70..."
+[build]
+command = "npm run build"
