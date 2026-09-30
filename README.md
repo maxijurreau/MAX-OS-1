@@ -1,169 +1,184 @@
-# Portal-OS — Rebuild 2
+# MAX‑OS‑1
 
-**Integrated Operating System Architecture**
+**Client Operating System with MAX-OS Abstractions**
 
-> Rebuild 1 proved the system works.  
-> Rebuild 2 makes the system whole.
+> MAX-OS-1 is the first client OS implementation built on the Portal-OS kernel.
 
-Portal-OS is a distributed operating system built on Cloudflare Workers, with a kernel written in Python and a cognitive architecture built on SIM (Symbolic Intelligent Model).
+## Architecture
 
-## Structure
+MAX‑OS‑1 is a **client OS**, not a kernel. It is built on top of Portal-OS, the planetary kernel, and communicates with Portal-OS through a well-defined envelope bridge.
 
 ```
-src/
-  ├── index.ts                    # Cloudflare Workers entrypoint (Hono)
-kernel/
-  ├── boot.py                     # Kernel initialization
-  ├── scheduler.py                # Multi-domain scheduler
-  ├── invariants.py               # System invariants
-  └── [modules]/                  # Kernel subsystems
-identity/                          # Identity & authentication
-governance/                        # Rules & policies
-routing/                          # Message routing
-orchestration/                    # Task orchestration
-tec/                              # TEC execution layer
-cognitive/                        # SIM cognitive architecture
+┌─────────────────────────────────┐
+│  MAX‑OS‑1 (Client OS)           │
+│  - MAX-OS abstractions          │
+│  - Session orchestration        │
+│  - SIM cognitive wiring         │
+│  - TEC execution layer          │
+│  - Substrate persistence        │
+└─────────────────────────────────┘
+              ↓
+    Portal-OS Envelope Bridge
+  (Deterministic Request/Response)
+              ↓
+┌─────────────────────────────────┐
+│  Portal-OS (Kernel)             │
+│  src/do/PortalKernel.ts         │
+│  - Phase‑12 lanes               │
+│  - Durable Object state         │
+│  - Identity enforcement         │
+│  - Governance + Umbrella        │
+└─────────────────────────────────┘
 ```
 
-## Rebuild 2 — What It Is
+## This Repository
 
-Rebuild 2 is the **integration rebuild** — the phase where Portal-OS transforms from a set of working components into a **unified, internally coherent operating system**.
+MAX‑OS‑1 contains:
 
-### Purpose
+- **src/maxos/** — MAX-OS abstractions:
+  - `middleware/` — enforcement, identity validation, governance
+  - `routing/` — lane-based envelope routing
+  - `session/` — session orchestration
+  - `state/` — substrate, repositories, R2 adapters
+  - `observability/` — logging, metrics, tracing
+  - `resilience/` — retries, circuit breaking, timeouts
 
-Transform Rebuild 1's successful deploy state into a fully integrated Portal-OS architecture where every subsystem is wired together into a single deterministic runtime.
+- **src/index.ts** — Hono Worker entrypoint that:
+  - Parses and validates incoming envelopes
+  - Enforces identity + governance
+  - Routes envelopes through MAX-OS lanes
+  - Sends envelopes to Portal-OS kernel
+  - Normalizes responses for clients
 
-### Key Additions
+- **tests/** — Integration tests for MAX-OS abstractions
 
-1. **Worker → Kernel Bridge** — Message bridge between Worker entrypoint and Kernel boot
-2. **Kernel Initialization Sequence** — Formalizes invariants, module loading, scheduler startup, governance + identity registration
-3. **Multi-Domain Scheduler** — Cognitive, orchestration, substrate, and governance lanes
-4. **SIM Cognitive Wiring** — Kernel → SIM integration (Core, State, Trajectory, Compute)
-5. **TEC Execution Layer** — Pipelines, agents, surfaces, governance hooks
-6. **Identity + Governance Enforcement** — Wired into routing, orchestration, kernel invariants
-7. **Routing Table** — Deterministic routing from Worker → Kernel → SIM → TEC → Substrate → Worker
-8. **Substrate State Model** — DO state, KV persistence, substrate invariants
+- **wrangler.toml** — Cloudflare Workers config:
+  - `KERNEL_SERVICE` binding to `portal-kernel` Worker
+  - `MAXOS_STATE` R2 bucket for persistent state
+  - Phase-11 runtime variables
 
-## Rebuild 2 — Build Order
+## Portal-OS Separation
 
-1. ✓ Worker → Kernel bridge
-2. ✓ Kernel boot + invariants
-3. ✓ Scheduler domain lanes
-4. ✓ SIM wiring
-5. ✓ TEC pipelines
-6. ✓ Identity + governance
-7. ✓ Routing table
-8. ✓ Substrate state model
-9. ✓ MAX-OS-1 universe adapter
-10. ✓ Full integration test
+**Portal-OS is the kernel. MAX-OS-1 is a client.**
 
-## System Invariants
+The Portal-OS kernel repository (`planetary-max`) contains:
+- `src/do/PortalKernel.ts` — single Durable Object
+- `src/index.ts` — Worker routes that call PortalKernel
+- Phase-12 lanes: portal, planetary, sim, windows, identity, umbrella, timeline, diff, replay
+- JWT-based identity verification
+- Umbrella strict governance enforcement
 
-Portal-OS maintains these invariants across all layers:
+MAX-OS-1 does **not** implement the kernel; it sends typed envelopes to Portal-OS and receives deterministic results.
 
-### Tier 1: Foundational
-- **State Coherence** — System state must be consistent across all layers
-- **No Silent Failures** — Every failure must be logged and escalated
+## Communication Protocol
 
-### Tier 2: Security
-- **Authorization Enforced** — Every operation must be authorized
-- **Identity Established** — Every message must carry valid identity
+### Request Envelope (MAX-OS-1 → Portal-OS)
 
-### Tier 3: Messaging
-- **Message Ordering** — Intra-domain ordering is strict
-- **No Message Loss** — Every message is processed or explicitly rejected
-- **Message Timeout** — Messages have bounded age
-
-### Tier 4: Concurrency
-- **Scheduler Cycles Complete** — Cycles complete within bounded time
-- **No Deadlock** — Lanes never deadlock each other
-
-### Tier 5: Substrate
-- **Substrate Consistent** — DO + KV state synchronized
-- **KV Eventual Consistency** — System handles eventual consistency gracefully
-
-### Tier 6: Execution
-- **SIM Trajectory Valid** — SIM state trajectory is always valid
-- **TEC Execution Bounded** — TEC agents complete within bounded time
-
-## Getting Started
-
-### Prerequisites
-- Python 3.9+
-- Node.js 18+
-- Cloudflare Workers account
-
-### Running Kernel Boot
-```bash
-python kernel/boot.py
+```json
+{
+  "id": "message-unique-id",
+  "type": "sim | tec | universe | session",
+  "payload": { "...": "lane-specific data" },
+  "identity": {
+    "credential": "jwt-token",
+    "id": "identity-id",
+    "type": "user | service | system",
+    "authenticated": true,
+    "roles": ["role1", "role2"]
+  },
+  "governanceContext": {
+    "umbrella": { "allowed": true, "policy": "..." },
+    "planetary": { "allowed": true, "policy": "..." },
+    "session": { "allowed": true, "policy": "..." }
+  },
+  "sessionId": "optional-session-id",
+  "sim": { "...": "optional sim context" },
+  "tec": { "...": "optional tec context" }
+}
 ```
 
-This will execute the full boot sequence:
-1. Load invariants
-2. Load modules
-3. Start scheduler
-4. Register governance
-5. Register identity
+### Response Envelope (Portal-OS → MAX-OS-1)
 
-### Worker and Kernel Bridge
-
-Cloudflare Workers cannot start local subprocesses. Deploy the Python adapter
-behind the `portal-kernel` Worker and connect it through the required
-`KERNEL_SERVICE` service binding. The Portal-OS Worker enforces identity and
-governance, dispatches envelopes through the declarative MAX-OS-1 lane router,
-persists deterministic lane state through the `MAXOS_STATE` R2 binding, and
-sends the orchestrated envelope to that binding. Identity metadata is
-structurally checked at the edge; the kernel remains authoritative for
-credential verification. The Worker does not define local demo routes. For
-local adapter development:
-
-Phase 11 adds deterministic request tracing, structured JSON logs, no-op-safe
-metrics, bounded kernel/substrate retries and timeouts, and a kernel circuit
-breaker. Runtime limits are configured through the timeout, retry, and circuit
-variables in `wrangler.toml`.
-
-```bash
-python kernel/http_adapter.py --port 8788
+```json
+{
+  "ok": true,
+  "messageId": "message-unique-id",
+  "status": 200,
+  "data": { "...": "normalized result" }
+}
 ```
-
-The one-message synchronous bridge is also available directly:
-
-```bash
-export PORTAL_SERVICE_TOKEN="a-locally-generated-secret"
-printf '%s' '{"id":"demo","type":"sim","payload":{},"identity":"a-locally-generated-secret","governanceContext":{}}' \
-  | python kernel/boot.py --message
-```
-
-Identity tokens are loaded from `PORTAL_SYSTEM_TOKEN`, `PORTAL_SERVICE_TOKEN`,
-and `PORTAL_OBSERVER_TOKEN`; there are no built-in production credentials.
-
-Set `MAXOS_MODULE` to the installed MAX-OS-1 Python module exporting
-`MaxOsUnifiedOrchestrator`. Without it, a deterministic in-memory universe is
-used for local development and integration tests.
 
 ## Development
 
-### Testing Invariants
-```bash
-python -c "from kernel.invariants import InvariantChecker; InvariantChecker().check_all()"
-```
+### Prerequisites
+- Node.js 18+
+- Cloudflare Workers account
+- Portal-OS kernel deployed (`portal-kernel` service binding)
 
-### Rebuild 2 Integration
+### Installation
 
 ```bash
-python tests/integration_rebuild2.py
+git clone https://github.com/maxijurreau/MAX-OS-1.git
+cd MAX-OS-1
+npm install
+npm run build
 npm run check
+npm test
 ```
+
+### Testing
+
+```bash
+# Type check
+npm run check
+
+# Run tests
+npm test
+
+# Deploy dry run (requires wrangler login)
+npx wrangler deploy --dry-run
+```
+
+### Debugging
+
+1. Verify Portal-OS kernel is running as `portal-kernel` service
+2. Check `KERNEL_SERVICE` binding in `wrangler.toml`
+3. Review enforcement middleware logs for identity/governance failures
+4. Inspect envelope shape in middleware/enforcement.ts
+
+## Integration with Portal-OS
+
+MAX-OS-1 expects Portal-OS (`portal-kernel`) to be available via service binding.
+
+**Deployment order:**
+1. Deploy Portal-OS kernel (`planetary-max`)
+2. Create or update `portal-kernel` service binding in your Cloudflare account
+3. Deploy MAX-OS-1, which will call `KERNEL_SERVICE`
+
+**Configuration:**
+- Set `KERNEL_SERVICE` to the Portal-OS Worker
+- Set `MAXOS_STATE` to an R2 bucket for session/SIM/TEC/universe state
+- Portal-OS handles identity verification and governance enforcement
+
+## Tests
+
+MAX-OS-1 tests focus on:
+- Envelope parsing and validation
+- Enforcement middleware (identity + governance)
+- Lane routing and orchestration
+- Substrate persistence (R2 adapters)
+- Resilience (retries, timeouts, circuit breaking)
+
+Tests **do not** include PortalKernel unit tests — those belong in the Portal-OS repository.
 
 ## Status
 
-- **Rebuild 2**: Complete
-- **Architecture**: Defined
-- **Core Modules**: Initialized
-- **Next Phase**: Deploy the Python adapter and connect the external MAX-OS-1 package
+- **Rebuild Phase**: 11
+- **Architecture**: Client OS on Portal-OS kernel
+- **Next Phase**: Deploy to Cloudflare with Portal-OS kernel service binding
 
 ---
 
-**Last Updated**: 2026-08-27  
-**Rebuild Phase**: 2  
-**Status**: Integrated architecture foundation
+**Last Updated**: 2026-09-30  
+**Architecture**: Separated client (MAX-OS-1) and kernel (Portal-OS) repositories  
+**Integration**: Envelope bridge to Portal-OS kernel
